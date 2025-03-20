@@ -27,4 +27,4 @@ lint:
 
 typings:
 	@echo "Checking type errors"
-	mypy
+	mypy .
