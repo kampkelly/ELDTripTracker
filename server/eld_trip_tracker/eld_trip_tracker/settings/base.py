@@ -20,6 +20,10 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# GDAL settings for PostGis
+GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH")
+GEOS_LIBRARY_PATH = os.getenv("GEOS_LIBRARY_PATH")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -42,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.gis",
     "rest_framework",
     "api_v1.apps.ApiV1Config",
     "corsheaders",
@@ -103,7 +108,8 @@ WSGI_APPLICATION = "eld_trip_tracker.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        # "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
         "NAME": os.getenv("DATABASE_NAME"),
         "USER": os.getenv("DATABASE_USERNAME"),
         "PASSWORD": os.getenv("DATABASE_PASSWORD"),
