@@ -20,4 +20,9 @@ class Stop(CommonFieldsMixin):
     timestamp = models.DateTimeField()
 
     def __str__(self):
-        return f"{self.get_stop_type_display()} at {self.timestamp}"
+        return (
+            f"Stop: {self.get_stop_type_display()}, "
+            f"Timestamp: {self.timestamp}, "
+            f"Duration: {self.duration}, "
+            f"Location: {self.location}"
+        )

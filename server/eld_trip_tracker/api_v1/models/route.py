@@ -6,7 +6,7 @@ from .trip import Trip
 
 
 class Route(CommonFieldsMixin):
-    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="routes")
+    trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name="route")
     geometry = gis_models.LineStringField(srid=4326)
     created_at = models.DateTimeField(auto_now_add=True)
 

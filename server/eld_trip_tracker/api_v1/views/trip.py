@@ -49,13 +49,31 @@ class TripListCreateAPIView(APIView):
 
     pagination_class = StandardResultsSetPagination
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.distance = Distance()
+        self.fuel_stop = FuelStop()
+        self.mapbox_api = MapBoxAPI()
+
     def post(self, request):
-        # Validate and create trip
         serializer = TripSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         trip = serializer.save()
+
+        route_data = self._calculate_initial_route(trip)
+        created_route = Route.objects.create(
+            trip=trip,
+            geometry=LineString(polyline.decode(route_data["geometry"], 5)),
+        )
+        trip, route, _, _, _ = self._calculate_fuel_stops(
+            trip, created_route, route_data
+        )
+        trip = self._calculate_rest_stops(trip, route)
+        trip = self.update_durations_from_stops(trip)
+
+        self.create_logs(trip)
 
         try:
             return Response(build_response(trip), status=status.HTTP_201_CREATED)
@@ -79,59 +97,8 @@ class TripListCreateAPIView(APIView):
         serializer = TripSerializer(trips, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def _build_response(self, trip):
-        """
-        Construct a response containing trip data.
-        """
-        return {
-            "trip": TripSerializer(trip).data,
-        }
-
-
-class TripDetailAPIView(APIView):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.distance = Distance()
-        self.fuel_stop = FuelStop()
-        self.mapbox_api = MapBoxAPI()
-
-    def get(self, request, pk, format=None):
-        """
-        Return a single SKU by primary key (pk).
-        """
-        trip = Trip.objects.filter(pk=pk).first()
-        if not trip:
-            return Response(
-                {"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        routes = Route.objects.filter(trip=trip)
-        for route in routes:
-            Stop.objects.filter(route=route).delete()
-        routes.delete()
-        # move this to post endpoint
-        try:
-            # Calculate route using Mapbox Directions API
-            route_data = self._calculate_initial_route(trip)
-            # Create Route
-            created_route = Route.objects.create(
-                trip=trip,
-                # geometry=route_data['geometry'],
-                geometry=LineString(polyline.decode(route_data["geometry"], 5)),
-                # fuel_stops=[]
-            )
-            trip, route, _, _, _ = self._calculate_fuel_stops(
-                trip, created_route, route_data
-            )
-            trip = self._calculate_rest_stops(trip, route)
-            self.update_durations_from_stops(trip)
-
-            return Response(build_response(trip), status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            general_logger.error(f"Error occured: {e}")
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    def create_logs(self, trip):
+        trip.create_daily_logs()
 
     def _calculate_initial_route(self, trip):
         """Get route details from Mapbox Directions API"""
@@ -480,24 +447,27 @@ class TripDetailAPIView(APIView):
         duration_to_add = 0
 
         for stop in stops:
-            general_logger.info(f"Stop location: {stop.stop_type}, {stop.location}")
+            # general_logger.info(f"Stop location: {stop.stop_type}, {stop.location}")
+            general_logger.info(f"Stop location: {stop}")
         for ind, stop in enumerate(stops, 0):
             # Update the next stop
+            duration_to_add += stop.duration
             if ind + 1 <= len(stops) - 1:
                 next_stop = stops[ind + 1]
                 general_logger.info(
                     f"Before update: {next_stop.stop_type}, {next_stop.timestamp}"
                 )
                 next_stop.timestamp = next_stop.timestamp + timedelta(
-                    hours=stop.duration
+                    # hours=stop.duration
+                    hours=duration_to_add
                 )
                 general_logger.info(
                     f"Updating next stop: {next_stop.stop_type}, "
-                    f"{next_stop.timestamp}, duration: {stop.duration}"
+                    f"{next_stop.timestamp}, duration: {stop.duration}, all: {duration_to_add}"
                 )
                 next_stop.save()
 
-            duration_to_add += stop.duration
+            # duration_to_add += stop.duration
             general_logger.info(f"Adding to temp duration: {duration_to_add}")
 
         # Update the trip's total duration
@@ -505,3 +475,32 @@ class TripDetailAPIView(APIView):
         trip.total_duration += duration_to_add
         general_logger.info(f"Updated trip total duration: {trip.total_duration}")
         trip.save()
+
+        return trip
+
+
+class TripDetailAPIView(APIView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.distance = Distance()
+        self.fuel_stop = FuelStop()
+        self.mapbox_api = MapBoxAPI()
+
+    def get(self, request, pk, format=None):
+        """
+        Return a single Trip by primary key (pk).
+        """
+        trip = Trip.objects.filter(pk=pk).first()
+        if not trip:
+            return Response(
+                {"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            return Response(build_response(trip), status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            general_logger.error(f"Error occured: {e}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
