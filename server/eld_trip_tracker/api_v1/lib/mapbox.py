@@ -1,6 +1,7 @@
 import os
 
 import requests
+from api_v1.lib.logger import general_logger
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,6 +16,7 @@ class MapBoxAPI:
         pass
 
     def make_request(self, url, extra_params):
+        general_logger.info(f"making mapbox api call: {url}")
         params = {
             "access_token": MAPBOX_ACCESS_TOKEN,
         }
@@ -30,9 +32,9 @@ class MapBoxAPI:
         return data
 
     # coords is a list of longitude, latitude
-    def get_direction(self, coords, steps="true"):
+    def get_direction(self, coords, steps="true", is_polyline=True):
         params = {
-            "geometries": "polyline",
+            "geometries": "polyline" if is_polyline else "geojson",
             "overview": "full",
             "steps": steps,
             "exclude": "toll,ferry",
