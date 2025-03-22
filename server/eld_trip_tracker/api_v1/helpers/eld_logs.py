@@ -1,7 +1,10 @@
+import base64
 from datetime import datetime
+from io import BytesIO
 
 from api_v1.lib.logger import general_logger
-from reportlab.lib.colors import blue
+from pdf2image import convert_from_bytes
+from reportlab.lib.colors import blue, sandybrown
 from reportlab.pdfgen import canvas
 
 
@@ -24,6 +27,31 @@ class ELDLog:
 
         general_logger.info(f"grid: {grid}")
         return grid
+
+    def generate_eld_logs(self, trip, daily_logs):
+        eld_logs = []
+        for daily_log in daily_logs:
+            grid = self.generate_log_grid(daily_log)
+            log_data = self.get_log_metadata(trip, grid)
+            log_data["entries"] = grid
+            log_data["total_miles"] = round(daily_log.total_miles, 2)
+            pdf_base64, img_base64 = self.generate_eld_log(
+                output_path=f"outputs/daily_log_{daily_log.date}.pdf",
+                background_image="blank-paper-log.png",
+                daily_data=log_data,
+            )
+
+            eld_logs.append(
+                {
+                    "date": daily_log.date,
+                    "total_miles": daily_log.total_miles,
+                    # "pdf_base64": "",
+                    "pdf_base64": pdf_base64,
+                    "img_base64": img_base64,
+                }
+            )
+
+        return eld_logs
 
     def get_log_metadata(self, trip, entries):
         data = {
@@ -79,7 +107,9 @@ class ELDLog:
 
     def generate_eld_log(self, output_path, background_image, daily_data):
         CUSTOM_PAGE_SIZE = (513, 518)
-        c = canvas.Canvas(output_path, pagesize=CUSTOM_PAGE_SIZE)
+        buffer = BytesIO()
+        # c = canvas.Canvas(output_path, pagesize=CUSTOM_PAGE_SIZE)
+        c = canvas.Canvas(buffer, pagesize=CUSTOM_PAGE_SIZE)
         c.drawImage(
             background_image,
             0,
@@ -117,6 +147,7 @@ class ELDLog:
         }
 
         c.setFont("Helvetica", 10)
+        c.setFillColor(sandybrown)
         c.drawString(
             coord["total_miles"][0],
             coord["total_miles"][1],
@@ -234,3 +265,24 @@ class ELDLog:
             c.line(x_transition, from_status_y, x_transition, to_status_y)
 
         c.save()
+        pdf_value = buffer.getvalue()
+        pdf_base64 = base64.b64encode(pdf_value).decode("utf-8")
+
+        # Save the PDF to a file
+        with open(output_path, "wb") as pdf_file:
+            pdf_file.write(pdf_value)
+
+        # Convert PDF to image
+        images = convert_from_bytes(pdf_value, fmt="png")
+        img_base64 = None
+        if images:
+            image = images[0]
+            img_buffer = BytesIO()
+            image.save(img_buffer, format="PNG")
+            img_base64 = base64.b64encode(img_buffer.getvalue()).decode("utf-8")
+        else:
+            img_base64 = None
+
+        buffer.close()
+
+        return pdf_base64, img_base64

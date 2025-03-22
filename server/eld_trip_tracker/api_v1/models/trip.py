@@ -9,8 +9,11 @@ from .base import CommonFieldsMixin
 
 class Trip(CommonFieldsMixin):
     current_location = gis_models.PointField(srid=4326)
+    current_location_name = models.CharField(max_length=255, default="")
     pickup_location = gis_models.PointField(srid=4326)
+    pickup_location_name = models.CharField(max_length=255, default="")
     dropoff_location = gis_models.PointField(srid=4326)
+    dropoff_location_name = models.CharField(max_length=255, default="")
     current_cycle_hours = models.FloatField()
     total_distance = models.FloatField(blank=True, null=True)
     total_duration = models.FloatField(blank=True, null=True)

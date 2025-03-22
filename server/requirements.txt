@@ -55,8 +55,13 @@ packaging==24.2
     #   build
 pathspec==0.12.1
     # via black
+pdf2image==1.17.0
+    # via -r requirements.in
 pillow==11.1.0
-    # via reportlab
+    # via
+    #   -r requirements.in
+    #   pdf2image
+    #   reportlab
 pip-tools==7.4.1
     # via -r requirements.in
 platformdirs==4.3.7

@@ -25,3 +25,17 @@ class Distance:
             accumulated += segment_length
 
         return Point(coords[-1][0], coords[-1][1], srid=4326)
+
+    def interpolate_point(self, route_geometry, fraction):
+        """Precise point interpolation along route geometry using Shapely's interpolate."""
+        line_string = route_geometry
+        if fraction < 0 or fraction > 1:
+            raise ValueError("Fraction must be between 0 and 1")
+
+        total_length = line_string.length
+        target_length = total_length * fraction
+
+        interpolated_point = line_string.interpolate(target_length)
+
+        # returns longitude, latitude
+        return Point(interpolated_point.y, interpolated_point.x, srid=4326)
