@@ -39,7 +39,7 @@ local_settings.py
 Thumbs.db
 
 # Project specific
-requirements.txt
+outputs/
 .coverage
 htmlcov/
 .pytest_cache/

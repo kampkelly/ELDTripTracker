@@ -27,9 +27,9 @@ class Trip(CommonFieldsMixin):
         from .stop import Stop
 
         stops = Stop.objects.filter(route__trip=self).order_by("timestamp")
-
         current_datetime = self.created_at
         daily_logs = {}
+        daily_mileage = {}  # Track mileage per day
 
         # Create timeline events
         timeline = []
@@ -69,15 +69,15 @@ class Trip(CommonFieldsMixin):
                 },
             )
             daily_logs[day] = daily_log
+            daily_mileage[day] = 0.0
 
-        # Create duty status entries
+        # Create duty status entries and calculate mileage
         for event in timeline:
             event_type, start, end, status_description = event
             current_day = start.date()
 
             while current_day <= end.date():
                 day_log = daily_logs[current_day]
-
                 day_start = timezone.make_aware(datetime.combine(current_day, time.min))
                 day_end = timezone.make_aware(datetime.combine(current_day, time.max))
 
@@ -89,6 +89,23 @@ class Trip(CommonFieldsMixin):
                     current_day += timedelta(days=1)
                     continue
 
+                # Calculate mileage for driving periods
+                if event_type == "driving":
+                    # Get the fraction of the route for this driving period
+                    total_trip_duration = (
+                        self.created_at + timedelta(hours=self.total_duration)
+                    ) - self.created_at
+                    driving_duration = overlap_end - overlap_start
+                    fraction = (
+                        driving_duration.total_seconds()
+                        / total_trip_duration.total_seconds()
+                    )
+
+                    # Calculate distance for this driving period
+                    driving_distance = self.total_distance * fraction
+                    daily_mileage[current_day] += driving_distance
+
+                # Determine status type
                 if event_type == "mandatory_rest":
                     status = "off-duty"
                 elif event_type == "rest_break":
@@ -106,8 +123,20 @@ class Trip(CommonFieldsMixin):
                     status_description=status_description,
                 )
 
-                # move to next day if needed
+                # Move to next day if needed
                 if overlap_end == day_end:
                     current_day += timedelta(days=1)
                 else:
                     break
+
+        # Update daily logs with calculated mileage
+        for day, mileage in daily_mileage.items():
+            daily_log = daily_logs[day]
+            daily_log.total_miles = mileage
+            daily_log.save()
+
+        # delete empty daily logs
+        for day, daily_log in list(daily_logs.items()):
+            if not daily_log.duty_statuses.exists():
+                daily_log.delete()
+                del daily_logs[day]

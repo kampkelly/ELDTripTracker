@@ -5,7 +5,7 @@ from api_v1.helpers.distance import Distance
 from api_v1.helpers.fuel_stops import FuelStop
 from api_v1.lib.logger import general_logger
 from api_v1.lib.mapbox import MapBoxAPI
-from api_v1.models import Route, Stop, Trip
+from api_v1.models import DailyLog, DutyStatus, Route, Stop, Trip
 from api_v1.serializers import TripSerializer
 from django.contrib.gis.geos import LineString, Point
 from django.utils import timezone
@@ -56,26 +56,44 @@ class TripListCreateAPIView(APIView):
         self.mapbox_api = MapBoxAPI()
 
     def post(self, request):
-        serializer = TripSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        trip = serializer.save()
-
-        route_data = self._calculate_initial_route(trip)
-        created_route = Route.objects.create(
-            trip=trip,
-            geometry=LineString(polyline.decode(route_data["geometry"], 5)),
-        )
-        trip, route, _, _, _ = self._calculate_fuel_stops(
-            trip, created_route, route_data
-        )
-        trip = self._calculate_rest_stops(trip, route)
-        trip = self.update_durations_from_stops(trip)
-
-        self.create_logs(trip)
-
         try:
+            serializer = TripSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            Stop.objects.all().delete()
+            DailyLog.objects.all().delete()
+            DutyStatus.objects.all().delete()
+            Route.objects.all().delete()
+            Trip.objects.all().delete()
+            trip = serializer.save()
+
+            route_data = self._calculate_initial_route(trip)
+            created_route = Route.objects.create(
+                trip=trip,
+                geometry=LineString(polyline.decode(route_data["geometry"], 5)),
+            )
+            trip, route, _, _, _ = self._calculate_fuel_stops(
+                trip, created_route, route_data
+            )
+            trip = self._calculate_rest_stops(trip, route)
+            trip = self.update_durations_from_stops(trip)
+
+            self.create_logs(trip)
+
+            daily_logs = trip.daily_logs.all().order_by("date")
+
+            for daily_log in daily_logs:
+                grid = self.eld_log.generate_log_grid(daily_log)
+                log_data = self.eld_log.get_log_metadata(trip, grid)
+                log_data["entries"] = grid
+                log_data["total_miles"] = round(daily_log.total_miles, 2)
+                self.eld_log.generate_eld_log(
+                    output_path=f"outputs/daily_log_{daily_log.date}.pdf",
+                    background_image="blank-paper-log.png",
+                    daily_data=log_data,
+                )
+
             return Response(build_response(trip), status=status.HTTP_201_CREATED)
         except Exception as e:
             trip.delete()
@@ -389,11 +407,19 @@ class TripListCreateAPIView(APIView):
             # Check for 70-hour limit violation after each break
             current_cycle_total = trip.current_cycle_hours + (accumulated_driving / 60)
             if not mandatory_rest_added and current_cycle_total >= 70:
+                # Add mandatory 34-hour restart
                 self._add_mandatory_rest(trip, route, break_position_hours)
                 mandatory_rest_added = True
-                break  # exceeded 70 hours
 
-            accumulated_driving += 30  # add break time
+                # Reset accumulated driving time after restart
+                accumulated_driving = 0
+                trip.current_cycle_hours = 0  # Reset cycle after restart
+                trip.save()
+
+                # Continue trip after restart
+                continue
+
+            accumulated_driving += 30  # Add break time
 
         # Check for final mandatory rest
         if not mandatory_rest_added:
@@ -411,17 +437,17 @@ class TripListCreateAPIView(APIView):
         return trip
 
     def _add_mandatory_rest(self, trip, route, position_hours):
-        """Create mandatory 10-hour rest stop"""
+        """Create mandatory 34-hour restart stop"""
         fraction = position_hours / trip.total_duration
         Stop.objects.create(
             route=route,
             stop_type="mandatory_rest",
             location=self._interpolate_point(route.geometry, fraction),
-            duration=10,
+            duration=34,  # 34-hour restart
             timestamp=trip.created_at + timedelta(hours=position_hours),
         )
         # Adjust total duration to account for rest period
-        trip.total_duration += 10
+        trip.total_duration += 34
         trip.save()
 
     def _interpolate_point(self, route_geometry, fraction):
@@ -447,7 +473,6 @@ class TripListCreateAPIView(APIView):
         duration_to_add = 0
 
         for stop in stops:
-            # general_logger.info(f"Stop location: {stop.stop_type}, {stop.location}")
             general_logger.info(f"Stop location: {stop}")
         for ind, stop in enumerate(stops, 0):
             # Update the next stop
@@ -458,7 +483,6 @@ class TripListCreateAPIView(APIView):
                     f"Before update: {next_stop.stop_type}, {next_stop.timestamp}"
                 )
                 next_stop.timestamp = next_stop.timestamp + timedelta(
-                    # hours=stop.duration
                     hours=duration_to_add
                 )
                 general_logger.info(
@@ -467,7 +491,6 @@ class TripListCreateAPIView(APIView):
                 )
                 next_stop.save()
 
-            # duration_to_add += stop.duration
             general_logger.info(f"Adding to temp duration: {duration_to_add}")
 
         # Update the trip's total duration
@@ -480,23 +503,17 @@ class TripListCreateAPIView(APIView):
 
 
 class TripDetailAPIView(APIView):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.distance = Distance()
-        self.fuel_stop = FuelStop()
-        self.mapbox_api = MapBoxAPI()
-
     def get(self, request, pk, format=None):
         """
         Return a single Trip by primary key (pk).
         """
-        trip = Trip.objects.filter(pk=pk).first()
-        if not trip:
-            return Response(
-                {"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
         try:
+            trip = Trip.objects.filter(pk=pk).first()
+            if not trip:
+                return Response(
+                    {"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+
             return Response(build_response(trip), status=status.HTTP_201_CREATED)
 
         except Exception as e:
