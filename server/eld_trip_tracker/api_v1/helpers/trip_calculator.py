@@ -78,22 +78,32 @@ class TripCalculator:
                     if not mandatory_rest_added
                     else break_position_hours + 34
                 )
-                if self.distance.interpolate_point(route.geometry, fraction) not in added_locations:
+                if (
+                    self.distance.interpolate_point(route.geometry, fraction)
+                    not in added_locations
+                ):
                     timezone_now = timezone_now + timedelta(hours=break_position_hours)
                     Stop.objects.create(
                         route=route,
                         stop_type="rest_break",
-                        location=self.distance.interpolate_point(route.geometry, fraction),
+                        location=self.distance.interpolate_point(
+                            route.geometry, fraction
+                        ),
                         duration=0.5,
-                        timestamp=timezone.now() + timedelta(hours=adjusted_break_position_hours),
+                        timestamp=timezone.now()
+                        + timedelta(hours=adjusted_break_position_hours),
                     )
-                    added_locations.add(self.distance.interpolate_point(route.geometry, fraction))
+                    added_locations.add(
+                        self.distance.interpolate_point(route.geometry, fraction)
+                    )
                 mandatory_rest_added = False
 
             # Check for 70-hour limit violation after each break
             if not mandatory_rest_added and current_cycle_total >= 70:
                 # Add mandatory 34-hour restart
-                trip = self._add_mandatory_rest(trip, route, break_position_hours - (current_cycle_total - 70))
+                trip = self._add_mandatory_rest(
+                    trip, route, break_position_hours - (current_cycle_total - 70)
+                )
                 mandatory_rest_added = True
 
                 # Reset accumulated driving time after restart

@@ -277,6 +277,8 @@ class FuelStop:
         trip.total_distance = total_distance_travelled
         trip.save()
 
-        general_logger.info(f"Final trip details: {final_distance}, {final_duration}, ----, {total_duration}, {driving_duration}")
+        general_logger.info(
+            f"Final trip details: {final_distance}, {final_duration}, ----, {total_duration}, {driving_duration}"
+        )
 
         return trip, route, total_distance_travelled, total_duration, final_geometry

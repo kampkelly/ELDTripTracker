@@ -1,8 +1,8 @@
 import os
-from llama_index.llms.gemini import Gemini
-from llama_index.core.prompts import PromptTemplate
 
 from dotenv import load_dotenv
+from llama_index.core.prompts import PromptTemplate
+from llama_index.llms.gemini import Gemini
 
 load_dotenv()
 
@@ -15,10 +15,13 @@ def get_llm(model_name="models/gemini-1.5-flash"):
 
 SUMMARY_RESPONSE_TEMPLATE = PromptTemplate(
     """
-        Summarize the key events of the following trip. Include the total distance, total duration, the pickup location and time, the dropoff location and time, and any significant stops like rest breaks or fuel stops. The data is in JSON format:
+        Summarize the key events of the following trip. Include the total distance, total duration,
+        the pickup location and time, the dropoff location and time, and any significant stops like rest breaks
+        or fuel stops. The data is in JSON format:
 
     Example response:
-    This trip covered a total distance of 1414.13 miles and lasted 26.33 hours.  It began at an Chicago at  March 23, 2025, 19:27:38 UTC and ended at Miami at  March 24, 2025, 19:27:38 UTC.
+    This trip covered a total distance of 1414.13 miles and lasted 26.33 hours.  It began at an Chicago at
+    March 23, 2025, 19:27:38 UTC and ended at Miami at  March 24, 2025, 19:27:38 UTC.
 
       The trip included the following significant stops:
 
@@ -30,9 +33,10 @@ SUMMARY_RESPONSE_TEMPLATE = PromptTemplate(
 
 
       The ELD logs indicate 207.72 miles driven on March 22nd and 964.80 miles driven on March 23rd.
-      
+
       Now do for the following data (format all the dates to be readable like March 23, 2025, 19:27:38 UTC):
-      Use these for start location, start time, end location andend time respectively: {start_location}, {start_time}, {end_location}, dropoff timestamp in data
+      Use these for start location, start time, end location andend time respectively: {start_location}, {start_time},
+      {end_location}, dropoff timestamp in data
 
     {data}
   """
