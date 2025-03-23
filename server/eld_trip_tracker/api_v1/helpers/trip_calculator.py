@@ -47,12 +47,15 @@ class TripCalculator:
     def calculate_rest_stops(self, trip, route):
         """Calculate required rest stops based on HOS rules"""
         total_driving_minutes = int(trip.total_duration * 60)
+        all_accumulated_driving = 0
         accumulated_driving = 0
         rest_break_count = 0
         mandatory_rest_added = False
 
         # Calculate 30-minute breaks every 8 hours (480 minutes)
-        while accumulated_driving < total_driving_minutes:
+        timezone_now = timezone.now()
+        added_locations = set()
+        while all_accumulated_driving < total_driving_minutes:
             remaining_driving = total_driving_minutes - accumulated_driving
             time_until_break = 480 - (accumulated_driving % 480)
 
@@ -61,25 +64,36 @@ class TripCalculator:
 
             # Add rest break
             accumulated_driving += time_until_break
+            all_accumulated_driving += time_until_break
             rest_break_count += 1
 
             # Calculate break position in hours
             break_position_hours = accumulated_driving / 60
             fraction = accumulated_driving / total_driving_minutes
 
-            Stop.objects.create(
-                route=route,
-                stop_type="rest_break",
-                location=self.distance.interpolate_point(route.geometry, fraction),
-                duration=0.5,
-                timestamp=timezone.now() + timedelta(hours=break_position_hours),
-            )
+            current_cycle_total = trip.current_cycle_hours + (accumulated_driving / 60)
+            if current_cycle_total < 70:
+                adjusted_break_position_hours = (
+                    break_position_hours
+                    if not mandatory_rest_added
+                    else break_position_hours + 34
+                )
+                if self.distance.interpolate_point(route.geometry, fraction) not in added_locations:
+                    timezone_now = timezone_now + timedelta(hours=break_position_hours)
+                    Stop.objects.create(
+                        route=route,
+                        stop_type="rest_break",
+                        location=self.distance.interpolate_point(route.geometry, fraction),
+                        duration=0.5,
+                        timestamp=timezone.now() + timedelta(hours=adjusted_break_position_hours),
+                    )
+                    added_locations.add(self.distance.interpolate_point(route.geometry, fraction))
+                mandatory_rest_added = False
 
             # Check for 70-hour limit violation after each break
-            current_cycle_total = trip.current_cycle_hours + (accumulated_driving / 60)
             if not mandatory_rest_added and current_cycle_total >= 70:
                 # Add mandatory 34-hour restart
-                self._add_mandatory_rest(trip, route, break_position_hours)
+                trip = self._add_mandatory_rest(trip, route, break_position_hours - (current_cycle_total - 70))
                 mandatory_rest_added = True
 
                 # Reset accumulated driving time after restart
@@ -91,19 +105,6 @@ class TripCalculator:
                 continue
 
             accumulated_driving += 30  # Add break time
-
-        # Check for final mandatory rest
-        if not mandatory_rest_added:
-            total_cycle = trip.current_cycle_hours + (total_driving_minutes / 60)
-            if total_cycle > 70:
-                available_driving = (70 - trip.current_cycle_hours) * 60
-                if available_driving > 0:
-                    fraction = available_driving / total_driving_minutes
-                    self._add_mandatory_rest(trip, route, available_driving / 60)
-
-        # Update total duration with break times
-        trip.total_duration += rest_break_count * 0.5
-        trip.save()
 
         return trip
 
@@ -117,9 +118,8 @@ class TripCalculator:
             duration=34,  # 34-hour restart
             timestamp=trip.created_at + timedelta(hours=position_hours),
         )
-        # Adjust total duration to account for rest period
-        trip.total_duration += 34
-        trip.save()
+
+        return trip
 
     def update_durations_from_stops(self, trip):
         """
@@ -137,6 +137,7 @@ class TripCalculator:
             duration_to_add += stop.duration
             if ind + 1 <= len(stops) - 1:
                 next_stop = stops[ind + 1]
+                next_stop = Stop.objects.get(id=next_stop.id)
                 general_logger.info(
                     f"Before update: {next_stop.stop_type}, {next_stop.timestamp}"
                 )
@@ -148,6 +149,9 @@ class TripCalculator:
                     f"{next_stop.timestamp}, duration: {stop.duration}, all: {duration_to_add}"
                 )
                 next_stop.save()
+                general_logger.info(
+                    f"Next stop updated: {next_stop.stop_type}, {next_stop.timestamp}"
+                )
 
             general_logger.info(f"Adding to temp duration: {duration_to_add}")
 

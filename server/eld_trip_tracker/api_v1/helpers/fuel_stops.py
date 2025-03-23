@@ -44,6 +44,7 @@ class FuelStop:
         coords_list = []
         total_distance_travelled = initial_route_data["distance"]
         total_duration = initial_route_data["duration"]
+        driving_duration = initial_route_data["duration"]
 
         previous_location_x, previous_location_y = (
             trip.current_location.x,
@@ -72,6 +73,7 @@ class FuelStop:
         if remaining_distance > 1000:
             total_distance_travelled = 0
             total_duration = 0
+            driving_duration = 0
         else:
             # add stops for pickup and dropoff
             coords_list.append((trip.pickup_location.x, trip.pickup_location.y))
@@ -95,7 +97,10 @@ class FuelStop:
                 duration=1,
                 timestamp=timezone.now() + timedelta(hours=total_duration),
             )
-            return total_distance_travelled, total_duration
+            trip.total_duration = total_duration
+            trip.total_distance = total_distance_travelled
+            trip.save()
+            return trip, route, total_distance_travelled, total_duration, geometry
         general_logger.info(
             f"Initial distance: {remaining_distance}, duration: {remaining_duration}"
         )
@@ -131,6 +136,7 @@ class FuelStop:
             detour_duration = detour_route["duration"] / SECONDS_IN_HOURS
             total_distance_travelled += detour_distance
             total_duration += detour_duration
+            driving_duration += detour_duration
 
             # get distance, duration from detour target to station
             coords = (
@@ -157,6 +163,7 @@ class FuelStop:
             total_duration_before_gas = total_duration
             total_distance_travelled += gas_distance
             total_duration += gas_duration
+            driving_duration += gas_duration
 
             # stop for station
             Stop.objects.create(
@@ -214,7 +221,6 @@ class FuelStop:
                     f"{trip.dropoff_location.x},"
                     f"{trip.dropoff_location.y}"
                 )
-            print(">>>>>3")
             data = self.mapbox_api.get_direction(coords)
 
             if not data.get("routes"):
@@ -233,6 +239,7 @@ class FuelStop:
             if remaining_distance < 1000:
                 total_distance_travelled += remaining_distance
                 total_duration += remaining_duration
+                driving_duration += remaining_duration
                 coords_list.append((trip.dropoff_location.x, trip.dropoff_location.y))
 
                 # add dropoff location
@@ -270,6 +277,6 @@ class FuelStop:
         trip.total_distance = total_distance_travelled
         trip.save()
 
-        general_logger.info(f"Final trip details: {final_distance}, {final_duration}")
+        general_logger.info(f"Final trip details: {final_distance}, {final_duration}, ----, {total_duration}, {driving_duration}")
 
         return trip, route, total_distance_travelled, total_duration, final_geometry

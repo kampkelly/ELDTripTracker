@@ -52,11 +52,14 @@ def build_frontend_response(trip, stops, eld_logs, hos):
     """
     Construct a response containing trip data.
     """
+    stops_data = get_stops(trip, stops)
+    stops_duration = sum(stop["duration"] for stop in stops_data)
     return {
         "id": trip.id,
         "total_distance": trip.total_distance,
         "total_duration": trip.total_duration,
-        "stops": get_stops(trip, stops),
+        "driving_duration": trip.total_duration - stops_duration,
+        "stops": stops_data,
         "eld_logs": eld_logs,
         "hos": hos,
     }
@@ -141,7 +144,6 @@ class TripListCreateAPIView(APIView):
             #         "total_miles": daily_log.total_miles,
             #         "pdf_base64": pdf_base_64,
             #     })
-
             # eld_logs = self.generate_eld_logs(trip, daily_logs)
             eld_logs = self.eld_log.generate_eld_logs(trip, daily_logs)
 
@@ -637,10 +639,15 @@ class TripDetailAPIView(APIView):
             )
 
     def post(self, request, pk, format=None):
+        trip = Trip.objects.filter(pk=pk).first()
+        if not trip:
+            return Response(
+                {"error": "Trip not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         llm = get_llm()
         
         formatted_data = json.dumps(request.data)
-        prompt = SUMMARY_RESPONSE_TEMPLATE.format(data=formatted_data)
+        prompt = SUMMARY_RESPONSE_TEMPLATE.format(data=formatted_data, start_location=trip.current_location_name, end_location=trip.dropoff_location_name, start_time=trip.created_at)
         general_logger.info(f"Calling llm with data: {formatted_data}")
         llm_response = str(llm.complete(prompt))
         
