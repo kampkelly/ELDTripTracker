@@ -1,3 +1,4 @@
+import json
 import polyline
 from api_v1.helpers.distance import Distance
 from api_v1.helpers.eld_logs import ELDLog
@@ -12,6 +13,7 @@ from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from api_v1.lib.llm import get_llm, SUMMARY_RESPONSE_TEMPLATE
 
 
 def build_response(trip):
@@ -51,6 +53,7 @@ def build_frontend_response(trip, stops, eld_logs, hos):
     Construct a response containing trip data.
     """
     return {
+        "id": trip.id,
         "total_distance": trip.total_distance,
         "total_duration": trip.total_duration,
         "stops": get_stops(trip, stops),
@@ -632,3 +635,16 @@ class TripDetailAPIView(APIView):
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def post(self, request, pk, format=None):
+        llm = get_llm()
+        
+        formatted_data = json.dumps(request.data)
+        prompt = SUMMARY_RESPONSE_TEMPLATE.format(data=formatted_data)
+        general_logger.info(f"Calling llm with data: {formatted_data}")
+        llm_response = str(llm.complete(prompt))
+        
+        general_logger.info(f"LLM response: {llm_response}")
+        response = {"summary": llm_response}
+
+        return Response(response, status=status.HTTP_200_OK)
