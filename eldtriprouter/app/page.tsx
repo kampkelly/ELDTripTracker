@@ -3,12 +3,23 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Clock, AlertTriangle, CheckCircle, FileText, MapIcon, Ruler, Timer, Pause, Download } from "lucide-react"
+import {
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  MapIcon,
+  Ruler,
+  Timer,
+  Pause,
+  Download,
+  MessageSquare,
+} from "lucide-react"
 import MapboxMap from "@/components/mapbox-map"
 import LocationInput from "@/components/location-input"
 import SimplePDFViewer from "@/components/simple-pdf-viewer"
 
-// API endpoint for trip planning
+// API endpoints for trip planning
 const TRIP_API_ENDPOINT = process.env.NEXT_PUBLIC_TRIP_API_ENDPOINT
 
 // Types for API request and response
@@ -43,6 +54,7 @@ interface EldLog {
 }
 
 interface TripResponse {
+  id: string
   total_distance: number
   total_duration: number
   rest_stops: number
@@ -77,6 +89,8 @@ export default function TripPlanner() {
   const [routeGenerated, setRouteGenerated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [tripData, setTripData] = useState<TripResponse | null>(null)
+  const [tripSummary, setTripSummary] = useState<string | null>(null)
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -104,6 +118,7 @@ export default function TripPlanner() {
     setTripData(null)
     setRouteGenerated(false)
     setIsLoading(true)
+    setTripSummary(null)
 
     // Validate that we have all required coordinates
     if (
@@ -167,6 +182,56 @@ export default function TripPlanner() {
       alert("Failed to generate route. Please try again.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGenerateSummary = async () => {
+    console.log("Trip data:", tripData)
+
+    if (!tripData || !tripData.id) {
+      console.error("No trip data or trip ID available")
+      return
+    }
+
+    setIsLoadingSummary(true)
+
+    try {
+      // Create a copy of the trip data without the base64 data to reduce payload size
+      const tripDataForLLM = {
+        ...tripData,
+        eld_logs: tripData.eld_logs.map((log) => ({
+          ...log,
+          img_base64: "", // Remove the base64 data
+          pdf_base64: "", // Remove the base64 data
+        })),
+      }
+
+      // Use our proxy API route instead of calling the external API directly
+      const response = await fetch("/api/proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tripId: tripData.id,
+          data: tripDataForLLM,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("Summary response:", data)
+
+      // Set the summary from the response
+      setTripSummary(data.summary || "No summary available.")
+    } catch (error) {
+      console.error("Error generating trip summary:", error)
+      setTripSummary("Failed to generate trip summary. Please try again.")
+    } finally {
+      setIsLoadingSummary(false)
     }
   }
 
@@ -295,6 +360,63 @@ export default function TripPlanner() {
 
         {routeGenerated && tripData && (
           <>
+            {/* Trip Summary Section */}
+            {tripSummary ? (
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold mb-4">Trip Summary</h2>
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex items-center mb-4 text-indigo-600">
+                    <MessageSquare className="mr-2" size={20} />
+                    <h3 className="font-medium text-lg">AI-Generated Summary</h3>
+                  </div>
+                  <div className="prose max-w-none">
+                    <p className="text-gray-700 whitespace-pre-line">{tripSummary}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6 flex justify-center">
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={isLoadingSummary}
+                  className={`${
+                    isLoadingSummary ? "bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-700"
+                  } text-white px-6 py-3 rounded-md text-sm font-medium transition-colors flex items-center`}
+                >
+                  {isLoadingSummary ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Generating Trip Summary...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2" size={16} />
+                      Generate Trip Summary
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Route Preview */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Route Preview</h2>
