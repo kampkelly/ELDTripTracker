@@ -1,4 +1,5 @@
 import base64
+import random
 from datetime import datetime
 from io import BytesIO
 
@@ -45,7 +46,6 @@ class ELDLog:
                 {
                     "date": daily_log.date,
                     "total_miles": daily_log.total_miles,
-                    # "pdf_base64": "",
                     "pdf_base64": pdf_base64,
                     "img_base64": img_base64,
                 }
@@ -55,16 +55,18 @@ class ELDLog:
 
     def get_log_metadata(self, trip, entries):
         data = {
-            "remarks": "Fuel stop at 07:09; Dropoff at 15:20",
+            "remarks": "",
             "month": datetime.now().strftime("%m"),
             "day": datetime.now().strftime("%d"),
             "year": datetime.now().strftime("%Y"),
-            "office_address": "Sap",
-            "home_address": "Sap",
-            "from": "Los Angeles",
-            "to": "Miami",
-            "carrier_name": "Truck",
-            "truck_no": "4568",
+            "office_address": "4488 Richards Avenue Stockton, CA 95202",
+            "home_address": "1037 Diane Street Arroyo Grande, CA 93420",
+            "from": trip.current_location_name[:30]
+            + ("..." if len(trip.current_location_name) > 30 else ""),
+            "to": trip.dropoff_location_name[:30]
+            + ("..." if len(trip.dropoff_location_name) > 30 else ""),
+            "carrier_name": "Runor Trucks",
+            "truck_no": str(random.randint(1000, 9999)),
         }
 
         duty_hours = {"off_duty": 0.0, "sleeper": 0.0, "driving": 0.0, "on_duty": 0.0}
@@ -122,8 +124,8 @@ class ELDLog:
             "month": (179, 501),
             "day": (222, 501),
             "year": (267, 501),
-            "office_address": (236, 423),
-            "home_address": (236, 403),
+            "office_address": (236, 420),
+            "home_address": (236, 400),
             "off_duty_hours": (472, 324),
             "sleeper_hours": (472, 306),
             "driving_hours": (472, 290),
@@ -131,10 +133,10 @@ class ELDLog:
             "total_hours": (472, 243),
             "from": (95, 475),
             "to": (279, 475),
-            "carrier_name": (236, 445),
+            "carrier_name": (236, 442),
             "truck_no": (60, 405),
             # "": "",
-            "total_miles": (67, 440),  # (x, y)
+            "total_miles": (67, 437),  # (x, y)
             "remarks": (88, 244),
             "grid": {
                 "start_x": 65,  # Left edge of the grid
@@ -269,8 +271,8 @@ class ELDLog:
         pdf_base64 = base64.b64encode(pdf_value).decode("utf-8")
 
         # Save the PDF to a file
-        with open(output_path, "wb") as pdf_file:
-            pdf_file.write(pdf_value)
+        # with open(output_path, "wb") as pdf_file:
+        #     pdf_file.write(pdf_value)
 
         # Convert PDF to image
         images = convert_from_bytes(pdf_value, fmt="png")

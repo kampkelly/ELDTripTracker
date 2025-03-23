@@ -27,7 +27,7 @@ def get_stops(trip, stops):
     stops_data = [
         {
             "coordinates": [trip.current_location.x, trip.current_location.y],
-            "timestamp": 0,
+            "timestamp": trip.created_at,
             "duration": 0,
             "stop_type": "current location",
         }
