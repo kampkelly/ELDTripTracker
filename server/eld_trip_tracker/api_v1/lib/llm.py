@@ -20,8 +20,8 @@ SUMMARY_RESPONSE_TEMPLATE = PromptTemplate(
         or fuel stops. The data is in JSON format:
 
     Example response:
-    This trip covered a total distance of 1414.13 miles and lasted 26.33 hours.  It began at an Chicago at
-    March 23, 2025, 19:27:38 UTC and ended at Miami at  March 24, 2025, 19:27:38 UTC.
+    This trip covered a total distance of 1414.13 miles and lasted 26.33 hours.  It began at Chicago on
+    March 23, 2025, 19:27:38 and ended at Miami on March 24, 2025, 19:27:38.
 
       The trip included the following significant stops:
 

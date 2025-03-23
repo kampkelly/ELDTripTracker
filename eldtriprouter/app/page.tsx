@@ -17,12 +17,10 @@ import {
 } from "lucide-react"
 import MapboxMap from "@/components/mapbox-map"
 import LocationInput from "@/components/location-input"
-import SimplePDFViewer from "@/components/simple-pdf-viewer"
+import ELDLogViewer from "@/components/eld-viewer"
 
-// API endpoints for trip planning
 const TRIP_API_ENDPOINT = process.env.NEXT_PUBLIC_TRIP_API_ENDPOINT
 
-// Types for API request and response
 interface TripRequestBody {
   current_location: {
     name: string
@@ -57,7 +55,7 @@ interface TripResponse {
   id: string
   total_distance: number
   total_duration: number
-  rest_stops: number
+  driving_duration: number
   stops: Stop[]
   eld_logs: EldLog[]
   hos: {
@@ -120,7 +118,6 @@ export default function TripPlanner() {
     setIsLoading(true)
     setTripSummary(null)
 
-    // Validate that we have all required coordinates
     if (
       !formData.currentLocation.coordinates ||
       !formData.pickupLocation.coordinates ||
@@ -131,7 +128,6 @@ export default function TripPlanner() {
       return
     }
 
-    // Prepare data for API in the required format
     const requestBody: TripRequestBody = {
       current_location: {
         name: formData.currentLocation.placeName,
@@ -196,17 +192,15 @@ export default function TripPlanner() {
     setIsLoadingSummary(true)
 
     try {
-      // Create a copy of the trip data without the base64 data to reduce payload size
       const tripDataForLLM = {
         ...tripData,
         eld_logs: tripData.eld_logs.map((log) => ({
           ...log,
-          img_base64: "", // Remove the base64 data
-          pdf_base64: "", // Remove the base64 data
+          img_base64: "",
+          pdf_base64: "",
         })),
       }
 
-      // Use our proxy API route instead of calling the external API directly
       const response = await fetch("/api/proxy", {
         method: "POST",
         headers: {
@@ -225,7 +219,6 @@ export default function TripPlanner() {
       const data = await response.json()
       console.log("Summary response:", data)
 
-      // Set the summary from the response
       setTripSummary(data.summary || "No summary available.")
     } catch (error) {
       console.error("Error generating trip summary:", error)
@@ -235,7 +228,6 @@ export default function TripPlanner() {
     }
   }
 
-  // Format duration in hours to hours and minutes
   const formatDuration = (hours: number) => {
     const totalMinutes = Math.round(hours * 60)
     const h = Math.floor(totalMinutes / 60)
@@ -243,23 +235,19 @@ export default function TripPlanner() {
     return `${h} ${h === 1 ? "hour" : "hours"} ${m} ${m === 1 ? "minute" : "minutes"}`
   }
 
-  // Format distance in miles
   const formatDistance = (miles: number) => {
     return `${Math.round(miles)} miles`
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - Simplified */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="container mx-auto">
           <h1 className="font-bold text-xl text-center">ELD Trip Planner</h1>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        {/* Trip Information Form */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-xl font-semibold mb-6">Trip Information</h2>
           <form onSubmit={handleGenerateRoute}>
@@ -360,7 +348,6 @@ export default function TripPlanner() {
 
         {routeGenerated && tripData && (
           <>
-            {/* Trip Summary Section */}
             {tripSummary ? (
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-4">Trip Summary</h2>
@@ -417,7 +404,6 @@ export default function TripPlanner() {
               </div>
             )}
 
-            {/* Route Preview */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Route Preview</h2>
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -437,7 +423,6 @@ export default function TripPlanner() {
               </div>
             </div>
 
-            {/* Route Details */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Route Details</h2>
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -456,8 +441,17 @@ export default function TripPlanner() {
                       <Timer className="text-indigo-600" size={20} />
                     </div>
                     <div>
-                      <h3 className="font-medium">Estimated Drive Time</h3>
+                      <h3 className="font-medium">Estimated Total Time</h3>
                       <p className="text-gray-600">{formatDuration(tripData.total_duration)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="bg-indigo-100 p-2 rounded-lg mr-4">
+                      <Timer className="text-indigo-600" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Estimated Drive Time</h3>
+                      <p className="text-gray-600">{formatDuration(tripData.driving_duration)}</p>
                     </div>
                   </div>
                   <div className="flex items-start">
@@ -465,24 +459,14 @@ export default function TripPlanner() {
                       <Pause className="text-indigo-600" size={20} />
                     </div>
                     <div>
-                      <h3 className="font-medium">Required Rest Stops</h3>
-                      <p className="text-gray-600">{tripData.rest_stops} stops</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="bg-indigo-100 p-2 rounded-lg mr-4">
-                      <FileText className="text-indigo-600" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">ELD Logs Required</h3>
-                      <p className="text-gray-600">{tripData.eld_logs.length} daily log sheets</p>
+                      <h3 className="font-medium">Required Stops</h3>
+                      <p className="text-gray-600">{tripData.stops.length - 2} stops</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Stops Information */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">Trip Stops</h2>
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -543,7 +527,6 @@ export default function TripPlanner() {
               </div>
             </div>
 
-            {/* ELD Logs Preview */}
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-4">ELD Logs Preview</h2>
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -563,47 +546,14 @@ export default function TripPlanner() {
                           key={index}
                           className="h-[500px] bg-gray-50 rounded-lg overflow-hidden border border-gray-200"
                         >
-                          <SimplePDFViewer
+                          <ELDLogViewer
                             imgBase64Data={log.img_base64}
                             pdfBase64Data={log.pdf_base64}
                             dayNumber={index + 1}
                             date={log.date}
                           />
-                          <div className="p-4 border-t border-gray-200">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Date:</span> {log.date}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">Total Miles:</span> {Math.round(log.total_miles)} miles
-                            </p>
-                          </div>
                         </div>
                       ))}
-                    </div>
-
-                    <div className="flex space-x-4">
-                      <button
-                        onClick={() => {
-                          // Create a zip file with all PDFs
-                          console.log("Download all logs clicked")
-                          // In a real app, you would implement a function to download all PDFs as a zip
-                          // For now, we'll just download them individually
-                          tripData.eld_logs.forEach((log, index) => {
-                            if (log.pdf_base64) {
-                              const link = document.createElement("a")
-                              link.href = `data:application/pdf;base64,${log.pdf_base64}`
-                              link.download = `ELD_Log_${log.date}.pdf`
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
-                            }
-                          })
-                        }}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center"
-                      >
-                        <Download size={16} className="mr-2" />
-                        Download All Logs
-                      </button>
                     </div>
                   </>
                 ) : (
@@ -613,66 +563,9 @@ export default function TripPlanner() {
                 )}
               </div>
             </div>
-
-            {/* Compliance Information */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">Compliance Information</h2>
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {tripData.hos.warning && (
-                    <div className="flex items-start">
-                      <div className="text-amber-500 mr-3">
-                        <AlertTriangle size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">Hours of Service Warning</h3>
-                        <p className="text-gray-600">{tripData.hos.warning || "No warnings"}</p>
-                      </div>
-                    </div>
-                  )}
-                  {tripData.hos.hours_left_in_8_days && (
-                    <div className="flex items-start">
-                      <div className="text-green-500 mr-3">
-                        <CheckCircle size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">70-Hour Rule Status</h3>
-                        <p className="text-gray-600">
-                          {tripData.hos.hours_left_in_8_days
-                            ? `You have ${tripData.hos.hours_left_in_8_days} hours remaining in your 8-day cycle`
-                            : "No data available"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {!tripData.hos.warning && !tripData.hos.hours_left_in_8_days && (
-                    <div className="flex items-start col-span-2">
-                      <div className="text-green-500 mr-3">
-                        <CheckCircle size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">Compliance Status</h3>
-                        <p className="text-gray-600">No compliance issues detected for this trip</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex space-x-4">
-              <button className="bg-indigo-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
-                Save Trip
-              </button>
-              <button className="bg-white text-indigo-600 border border-indigo-600 px-6 py-2 rounded-md text-sm font-medium hover:bg-indigo-50 transition-colors">
-                Export All Logs
-              </button>
-            </div>
           </>
         )}
       </main>
     </div>
   )
 }
-

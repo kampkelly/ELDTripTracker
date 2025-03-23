@@ -1,15 +1,14 @@
 "use client"
 import { Download, FileText } from "lucide-react"
 
-interface SimplePDFViewerProps {
-  imgBase64Data: string // base64 encoded PDF
-  pdfBase64Data: string // base64 encoded PDF
+interface ELDLogViewerProps {
+  imgBase64Data: string
+  pdfBase64Data: string
   dayNumber?: number
   date?: string
 }
 
-export default function SimplePDFViewer({ imgBase64Data, pdfBase64Data, dayNumber, date }: SimplePDFViewerProps) {
-  // Function to download the PDF
+export default function ELDLogViewer({ imgBase64Data, pdfBase64Data, dayNumber, date }: ELDLogViewerProps) {
   const handleDownload = () => {
     if (!pdfBase64Data) return
 
@@ -51,4 +50,3 @@ export default function SimplePDFViewer({ imgBase64Data, pdfBase64Data, dayNumbe
     </div>
   )
 }
-

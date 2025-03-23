@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { MapPin } from "lucide-react"
 
-// Mapbox token from our map component
 const MAPBOX_TOKEN = "pk.eyJ1Ijoia2FtcGtlbGx5IiwiYSI6ImNtOGZvbmU3MDBlcDgybHB3YTRlMThyMXkifQ.rPz58hWmBPYkKtvN5uw9mA"
 
 type LocationSuggestion = {
@@ -38,7 +37,6 @@ export default function LocationInput({
   const [isLoading, setIsLoading] = useState(false)
   const suggestionRef = useRef<HTMLDivElement>(null)
 
-  // Fetch suggestions from Mapbox Geocoding API
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (value.length < 2) {
@@ -69,7 +67,6 @@ export default function LocationInput({
     return () => clearTimeout(debounceTimer)
   }, [value])
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
@@ -114,7 +111,6 @@ export default function LocationInput({
           <MapPin size={18} />
         </div>
 
-        {/* Suggestions dropdown */}
         {showSuggestions && value.length >= 2 && (
           <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
             {isLoading ? (
@@ -140,4 +136,3 @@ export default function LocationInput({
     </div>
   )
 }
-
