@@ -1,4 +1,4 @@
 from .base import *  # noqa
 
 DEBUG = False
-ALLOWED_HOSTS = [".vercel.app", "onrender.com"]
+ALLOWED_HOSTS = ["*", ".vercel.app"]

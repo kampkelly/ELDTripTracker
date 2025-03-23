@@ -187,6 +187,7 @@ export default function TripPlanner() {
 
     if (!tripData || !tripData.id) {
       console.error("No trip data or trip ID available")
+      setTripSummary("Unable to generate summary. Please refresh!")
       return
     }
 
@@ -418,7 +419,7 @@ export default function TripPlanner() {
                 <p className="text-gray-600 mb-4 text-sm">
                   <strong>Map markers:</strong> Current: <MapPin className="text-green-500 inline-block" size={16} /> Pickup: <MapPin className="text-blue-500 inline-block" size={16} /> Fuel stop: <MapPin className="text-orange-500 inline-block" size={16} /> Rest stops: <MapPin className="text-yellow-500 inline-block" size={16} /> Dropoff: <MapPin className="text-purple-500 inline-block" size={16} />
                 </p>
-                <div className="h-64 md:h-96 w-full bg-gray-100 rounded-lg overflow-hidden mb-4">
+                <div className="h-[40vh] md:h-[50vh] w-full bg-gray-100 rounded-lg overflow-hidden mb-4">
                   <MapboxMap stops={tripData.stops} />
                 </div>
               </div>
