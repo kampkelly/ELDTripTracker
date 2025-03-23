@@ -13,7 +13,6 @@ def update_requirements_in(requirements_in_path: str, requirements_txt_path: str
         requirements_in_path: Path to requirements.in file
         requirements_txt_path: Path to requirements.txt file
     """
-    # Read requirements.txt and parse versions
     txt_versions = {}
     with open(requirements_txt_path) as f:
         for line in f:
@@ -23,14 +22,14 @@ def update_requirements_in(requirements_in_path: str, requirements_txt_path: str
                 try:
                     req = pkg_resources.Requirement.parse(line)
                     package_name = req.project_name
-                    # Get exact version without any specifiers
+                    # get exact version without any specifiers
                     version = re.search(r"==([^\s;]+)", line)
                     if version:
                         txt_versions[package_name.lower()] = version.group(1)
                 except:
                     continue
 
-    # Read and update requirements.in
+    # read and update requirements.in
     updated_lines = []
     with open(requirements_in_path) as f:
         for line in f:
@@ -40,7 +39,7 @@ def update_requirements_in(requirements_in_path: str, requirements_txt_path: str
                     req = pkg_resources.Requirement.parse(original_line)
                     package_name = req.project_name.lower()
                     if package_name in txt_versions:
-                        # Replace or add version specification
+                        # replace or add version specification
                         if "==" in original_line:
                             updated_line = re.sub(
                                 r"==[\d\.]+",
@@ -57,7 +56,7 @@ def update_requirements_in(requirements_in_path: str, requirements_txt_path: str
                     pass
             updated_lines.append(original_line)
 
-    # Write updated requirements.in
+    # write updated requirements.in
     with open(requirements_in_path, "w") as f:
         f.write("\n".join(updated_lines) + "\n")
 

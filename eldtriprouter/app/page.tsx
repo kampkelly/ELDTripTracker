@@ -13,6 +13,7 @@ import {
   Timer,
   Pause,
   Download,
+  MapPin,
   MessageSquare,
 } from "lucide-react"
 import MapboxMap from "@/components/mapbox-map"
@@ -414,12 +415,12 @@ export default function TripPlanner() {
                 <p className="text-gray-600 mb-4">
                   Interactive map showing your route with required stops and rest periods based on HOS regulations.
                 </p>
+                <p className="text-gray-600 mb-4 text-sm">
+                  <strong>Map markers:</strong> Current: <MapPin className="text-green-500 inline-block" size={16} /> Pickup: <MapPin className="text-blue-500 inline-block" size={16} /> Fuel stop: <MapPin className="text-orange-500 inline-block" size={16} /> Rest stops: <MapPin className="text-yellow-500 inline-block" size={16} /> Dropoff: <MapPin className="text-purple-500 inline-block" size={16} />
+                </p>
                 <div className="h-64 md:h-96 w-full bg-gray-100 rounded-lg overflow-hidden mb-4">
                   <MapboxMap stops={tripData.stops} />
                 </div>
-                <button className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
-                  View Full Map
-                </button>
               </div>
             </div>
 

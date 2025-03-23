@@ -3,14 +3,28 @@ import random
 from datetime import datetime
 from io import BytesIO
 
-from api_v1.lib.logger import general_logger
-from pdf2image import convert_from_bytes
 from reportlab.lib.colors import blue, sandybrown
 from reportlab.pdfgen import canvas
+from pdf2image import convert_from_bytes
+
+from api_v1.lib.logger import general_logger
 
 
 class ELDLog:
+    """
+    a class for generating ELD logs in PDF and image formats.
+    """
+
     def generate_log_grid(self, daily_log):
+        """
+        generates a grid of duty status entries for a given daily log.
+
+        args:
+            daily_log: the daily log object.
+
+        returns:
+            a list of dictionaries, where each dictionary represents a duty status entry.
+        """
         grid = []
 
         for status in daily_log.duty_statuses.order_by("start_time"):
@@ -26,12 +40,22 @@ class ELDLog:
                 }
             )
 
-        general_logger.info(f"grid: {grid}")
         return grid
 
     def generate_eld_logs(self, trip, daily_logs):
+        """
+        generates ELD logs for a trip, including PDF and image formats.
+
+        args:
+            trip: the trip object.
+            daily_logs: a list of daily log objects.
+
+        returns:
+            a list of dictionaries, where each dictionary represents an ELD log.
+        """
         eld_logs = []
         for daily_log in daily_logs:
+            general_logger.info(f"Generating ELD log for date: {daily_log.date}")
             grid = self.generate_log_grid(daily_log)
             log_data = self.get_log_metadata(trip, grid)
             log_data["entries"] = grid
@@ -50,10 +74,21 @@ class ELDLog:
                     "img_base64": img_base64,
                 }
             )
+            general_logger.info(f"ELD log generated successfully for date: {daily_log.date}")
 
         return eld_logs
 
     def get_log_metadata(self, trip, entries):
+        """
+        gets metadata for the ELD log, such as remarks, dates, addresses, and duty hours.
+
+        args:
+            trip: the trip object.
+            entries: a list of duty status entries.
+
+        returns:
+            a dictionary containing the log metadata.
+        """
         data = {
             "remarks": "",
             "month": datetime.now().strftime("%m"),
@@ -75,20 +110,30 @@ class ELDLog:
             start = datetime.strptime(entry["start"], "%H:%M")
             end = datetime.strptime(entry["end"], "%H:%M")
 
-            # Handle midnight crossover (e.g., 23:30 to 01:00)
+            # handle midnight crossover (e.g., 23:30 to 01:00)
             if end < start:
                 end = end.replace(day=end.day + 1)
 
-            duration = (end - start).total_seconds() / 3600  # Convert to hours
+            duration = (end - start).total_seconds() / 3600  # convert to hours
             duty_hours[entry["status"].replace("-", "_")] += duration
 
         total_hours = sum(duty_hours.values())
         data.update(duty_hours)
         data["total_hours"] = total_hours
 
+        general_logger.info(f"Log metadata: {data}")
         return data
 
     def process_entries(self, entries):
+        """
+        processes and sorts the duty status entries, identifying transitions between statuses.
+
+        args:
+            entries: a list of duty status entries.
+
+        returns:
+            a tuple containing the sorted entries and a list of transitions.
+        """
         sorted_entries = sorted(entries, key=lambda x: x["start"])
         transitions = []
 
@@ -105,19 +150,31 @@ class ELDLog:
                     }
                 )
 
+        general_logger.info(f"Processed entries, found transitions: {transitions}")
         return sorted_entries, transitions
 
     def generate_eld_log(self, output_path, background_image, daily_data):
-        CUSTOM_PAGE_SIZE = (513, 518)
+        """
+        generates the ELD log PDF and image files.
+
+        args:
+            output_path: the path to save the PDF file.
+            background_image: the path to the background image.
+            daily_data: a dictionary containing the daily log data.
+
+        returns:
+            a tuple containing the base64 encoded PDF and image data.
+        """
+        custom_page_size = (513, 518)
         buffer = BytesIO()
         # c = canvas.Canvas(output_path, pagesize=CUSTOM_PAGE_SIZE)
-        c = canvas.Canvas(buffer, pagesize=CUSTOM_PAGE_SIZE)
+        c = canvas.Canvas(buffer, pagesize=custom_page_size)
         c.drawImage(
             background_image,
             0,
             0,
-            width=CUSTOM_PAGE_SIZE[0],
-            height=CUSTOM_PAGE_SIZE[1],
+            width=custom_page_size[0],
+            height=custom_page_size[1],
         )
 
         coord = {
@@ -139,12 +196,12 @@ class ELDLog:
             "total_miles": (67, 437),  # (x, y)
             "remarks": (88, 244),
             "grid": {
-                "start_x": 65,  # Left edge of the grid
-                "start_y_off_duty": 325,  # Y for "Off Duty" row
-                "start_y_sleeper": 308,  # Y for "Sleeper Berth" row
-                "start_y_driving": 291,  # Y for "Driving" row
-                "start_y_on_duty": 274,  # Y for "On Duty" row
-                "hour_width": 16.1,  # Width of each hour column
+                "start_x": 65,  # left edge of the grid
+                "start_y_off_duty": 325,  # y for "off duty" row
+                "start_y_sleeper": 308,  # y for "sleeper berth" row
+                "start_y_driving": 291,  # y for "driving" row
+                "start_y_on_duty": 274,  # y for "on duty" row
+                "hour_width": 16.1,  # width of each hour column
             },
         }
 
@@ -204,16 +261,16 @@ class ELDLog:
 
         sorted_entries, transitions = self.process_entries(daily_data["entries"])
 
-        # Fill in the 24-hour grid
+        # fill in the 24-hour grid
         grid = coord["grid"]
         for entry in sorted_entries:
-            # Parse start/end times (e.g., "17:41" → 17.683 hours)
+            # parse start/end times (e.g., "17:41" → 17.683 hours)
             start = datetime.strptime(entry["start"], "%H:%M")
             end = datetime.strptime(entry["end"], "%H:%M")
             start_hour = start.hour + start.minute / 60
             end_hour = end.hour + end.minute / 60
 
-            # Determine Y position based on status
+            # determine y position based on status
             status_y = {
                 "off-duty": grid["start_y_off_duty"],
                 "sleeper": grid["start_y_sleeper"],
@@ -221,7 +278,7 @@ class ELDLog:
                 "on-duty": grid["start_y_on_duty"],
             }[entry["status"]]
 
-            # Calculate X positions for the time block
+            # calculate x positions for the time block
             x_start = grid["start_x"] + (start_hour * grid["hour_width"])
             x_end = grid["start_x"] + (end_hour * grid["hour_width"])
 
@@ -229,20 +286,20 @@ class ELDLog:
             c.setLineWidth(2)
             c.line(x_start, status_y, x_end, status_y)
 
-            # Add vertical remarks at the end of each status block
+            # add vertical remarks at the end of each status block
             if "notes" in entry and entry["notes"]:
                 remark_x = x_start + ((x_end - x_start) // 2)
                 remark_y = status_y - 85  # start point below the status line
 
-                # Rotate the canvas to write vertically
+                # rotate the canvas to write vertically
                 c.saveState()
-                c.translate(remark_x, remark_y)  # Move origin to the remark position
+                c.translate(remark_x, remark_y)  # move origin to the remark position
                 c.rotate(90)
                 c.setFont("Helvetica", 6)
                 c.drawString(0, 0, entry["notes"])
-                c.restoreState()  # Restore the canvas state
+                c.restoreState()  # restore the canvas state
 
-        # Draw vertical lines for transitions
+        # draw vertical lines for transitions
         c.setStrokeColor(blue)
         c.setLineWidth(2)
         for transition in transitions:
@@ -270,11 +327,12 @@ class ELDLog:
         pdf_value = buffer.getvalue()
         pdf_base64 = base64.b64encode(pdf_value).decode("utf-8")
 
-        # Save the PDF to a file
+        # save the PDF to a file in development
         # with open(output_path, "wb") as pdf_file:
         #     pdf_file.write(pdf_value)
+        # general_logger.info(f"PDF saved to {output_path}")
 
-        # Convert PDF to image
+        # convert PDF to image
         images = convert_from_bytes(pdf_value, fmt="png")
         img_base64 = None
         if images:
@@ -282,8 +340,10 @@ class ELDLog:
             img_buffer = BytesIO()
             image.save(img_buffer, format="PNG")
             img_base64 = base64.b64encode(img_buffer.getvalue()).decode("utf-8")
+            general_logger.info("PDF converted to image successfully")
         else:
             img_base64 = None
+            general_logger.warning("Failed to convert PDF to image")
 
         buffer.close()
 

@@ -25,17 +25,17 @@ type MapboxMapProps = {
 const getMarkerColor = (stopType: string): string => {
   switch (stopType.toLowerCase()) {
     case "current location":
-      return "#4F46E5"
+      return "green"
     case "pickup":
-      return "#F59E0B"
+      return "blue"
     case "dropoff":
-      return "#EF4444"
+      return "purple"
     case "rest break":
-      return "#10B981"
+      return "yellow"
     case "fuel":
-      return "#8B5CF6"
+      return "orange"
     default:
-      return "#6B7280"
+      return "gray"
   }
 }
 

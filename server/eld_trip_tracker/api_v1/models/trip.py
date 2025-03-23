@@ -1,9 +1,10 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta, time
 
 from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.utils import timezone
 
+from api_v1.lib.logger import general_logger
 from .base import CommonFieldsMixin
 
 
@@ -23,8 +24,14 @@ class Trip(CommonFieldsMixin):
         return (
             f"Trip from {self.pickup_location} to {self.dropoff_location} ({self.id})"
         )
-
     def create_daily_logs(self):
+        """
+        Creates daily logs, duty status entries, and calculates mileage for a trip.
+
+        This method processes the trip's timeline, including stops and driving periods,
+        to generate daily logs with corresponding duty status entries. It also calculates
+        the mileage for each day based on the driving periods.
+        """
         from .daily_log import DailyLog
         from .duty_status import DutyStatus
         from .stop import Stop
@@ -32,18 +39,18 @@ class Trip(CommonFieldsMixin):
         stops = Stop.objects.filter(route__trip=self).order_by("timestamp")
         current_datetime = self.created_at
         daily_logs = {}
-        daily_mileage = {}  # Track mileage per day
+        daily_mileage = {}  # track mileage per day
 
-        # Create timeline events
+        # create timeline events
         timeline = []
         for stop in stops:
-            # Add driving period before stop
+            # add driving period before stop
             if stop.timestamp > current_datetime:
                 timeline.append(
                     ("driving", current_datetime, stop.timestamp, stop.stop_type)
                 )
 
-            # Add the stop itself
+            # add the stop itself
             timeline.append(
                 (
                     stop.stop_type,
@@ -54,7 +61,7 @@ class Trip(CommonFieldsMixin):
             )
             current_datetime = stop.timestamp + timedelta(hours=stop.duration)
 
-        # Process timeline by day
+        # process timeline by day
         start_date = self.created_at.date()
         end_date = (self.created_at + timedelta(hours=self.total_duration)).date()
 
@@ -73,8 +80,9 @@ class Trip(CommonFieldsMixin):
             )
             daily_logs[day] = daily_log
             daily_mileage[day] = 0.0
+            general_logger.info(f"Created/retrieved daily log for {day}")
 
-        # Create duty status entries and calculate mileage
+        # create duty status entries and calculate mileage
         for event in timeline:
             event_type, start, end, status_description = event
             current_day = start.date()
@@ -84,7 +92,7 @@ class Trip(CommonFieldsMixin):
                 day_start = timezone.make_aware(datetime.combine(current_day, time.min))
                 day_end = timezone.make_aware(datetime.combine(current_day, time.max))
 
-                # Calculate overlap with current day
+                # calculate overlap with current day
                 overlap_start = max(start, day_start)
                 overlap_end = min(end, day_end)
 
@@ -92,9 +100,9 @@ class Trip(CommonFieldsMixin):
                     current_day += timedelta(days=1)
                     continue
 
-                # Calculate mileage for driving periods
+                # calculate mileage for driving periods
                 if event_type == "driving":
-                    # Get the fraction of the route for this driving period
+                    # get the fraction of the route for this driving period
                     total_trip_duration = (
                         self.created_at + timedelta(hours=self.total_duration)
                     ) - self.created_at
@@ -104,11 +112,14 @@ class Trip(CommonFieldsMixin):
                         / total_trip_duration.total_seconds()
                     )
 
-                    # Calculate distance for this driving period
+                    # calculate distance for this driving period
                     driving_distance = self.total_distance * fraction
                     daily_mileage[current_day] += driving_distance
+                    general_logger.info(
+                        f"Calculated driving distance: {driving_distance} for {current_day}"
+                    )
 
-                # Determine status type
+                # determine status type
                 if event_type == "mandatory_rest":
                     status = "off-duty"
                 elif event_type == "rest_break":
@@ -125,21 +136,26 @@ class Trip(CommonFieldsMixin):
                     status=status,
                     status_description=status_description,
                 )
+                general_logger.info(
+                    f"Created duty status: {status} for {current_day} from {overlap_start.time()} to {overlap_end.time()}"
+                )
 
-                # Move to next day if needed
+                # move to next day if needed
                 if overlap_end == day_end:
                     current_day += timedelta(days=1)
                 else:
                     break
 
-        # Update daily logs with calculated mileage
+        # update daily logs with calculated mileage
         for day, mileage in daily_mileage.items():
             daily_log = daily_logs[day]
             daily_log.total_miles = mileage
             daily_log.save()
+            general_logger.info(f"Updated daily log for {day} with mileage: {mileage}")
 
         # delete empty daily logs
         for day, daily_log in list(daily_logs.items()):
             if not daily_log.duty_statuses.exists():
                 daily_log.delete()
                 del daily_logs[day]
+                general_logger.info(f"Deleted empty daily log for {day}")
