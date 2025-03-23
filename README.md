@@ -6,8 +6,15 @@ This application is a full-stack solution built with Django and React that takes
 
 ## Live Demo
 
-Link to the hosted version
+[https://eld-trip-tracker.vercel.app/](https://eld-trip-tracker.vercel.app/)
 
+## Preview
+
+<img src="demo.jpeg" alt="Demo of the application" width="300"/>
+<details>
+    <summary>Click to Enlarge Image</summary>
+    <img src="demo.jpeg" alt="Demo of the application" width="800"/>
+</details>
 
 ## Features
 
