@@ -105,12 +105,6 @@ class TripListCreateAPIView(APIView):
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            # remove these after
-            Stop.objects.all().delete()
-            DailyLog.objects.all().delete()
-            DutyStatus.objects.all().delete()
-            Route.objects.all().delete()
-            Trip.objects.all().delete()
             trip = serializer.save()
 
             route_data = self.trip_calculator.calculate_initial_route(trip)

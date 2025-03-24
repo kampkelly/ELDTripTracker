@@ -31,7 +31,7 @@ SUMMARY_RESPONSE_TEMPLATE = PromptTemplate(
       * **Mandatory 70 hour Rest Break:** at 2025-03-23T13:08:08.581216Z (duration: 34 hours)
       * **Dropoff:** at 2025-03-23T19:27:38.857738Z (duration: 1 hour)
 
-      Now do for the following data (format all the dates to be readable like March 23, 2025, 19:27:38 UTC):
+      Now do for the following data (format all the dates to be readable like March 23, 2025, 19:27:38):
       Use these for start location, start time, end location andend time respectively: {start_location}, {start_time},
       {end_location}, dropoff timestamp in data
       **Do not add any additional notes, explanations, or assumptions beyond the given data.**

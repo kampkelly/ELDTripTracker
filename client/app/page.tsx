@@ -124,7 +124,7 @@ export default function TripPlanner() {
       !formData.pickupLocation.coordinates ||
       !formData.dropoffLocation.coordinates
     ) {
-      alert("Please ensure all locations have valid coordinates")
+      alert("Please ensure all locations have been properly entered")
       setIsLoading(false)
       return
     }
