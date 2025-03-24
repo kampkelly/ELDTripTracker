@@ -3,11 +3,10 @@ import random
 from datetime import datetime
 from io import BytesIO
 
+from api_v1.lib.logger import general_logger
+from pdf2image import convert_from_bytes
 from reportlab.lib.colors import blue, sandybrown
 from reportlab.pdfgen import canvas
-from pdf2image import convert_from_bytes
-
-from api_v1.lib.logger import general_logger
 
 
 class ELDLog:
@@ -74,7 +73,9 @@ class ELDLog:
                     "img_base64": img_base64,
                 }
             )
-            general_logger.info(f"ELD log generated successfully for date: {daily_log.date}")
+            general_logger.info(
+                f"ELD log generated successfully for date: {daily_log.date}"
+            )
 
         return eld_logs
 

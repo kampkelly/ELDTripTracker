@@ -1,10 +1,10 @@
-from datetime import datetime, timedelta, time
+from datetime import datetime, time, timedelta
 
+from api_v1.lib.logger import general_logger
 from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.utils import timezone
 
-from api_v1.lib.logger import general_logger
 from .base import CommonFieldsMixin
 
 
@@ -24,6 +24,7 @@ class Trip(CommonFieldsMixin):
         return (
             f"Trip from {self.pickup_location} to {self.dropoff_location} ({self.id})"
         )
+
     def create_daily_logs(self):
         """
         Creates daily logs, duty status entries, and calculates mileage for a trip.
@@ -137,7 +138,8 @@ class Trip(CommonFieldsMixin):
                     status_description=status_description,
                 )
                 general_logger.info(
-                    f"Created duty status: {status} for {current_day} from {overlap_start.time()} to {overlap_end.time()}"
+                    f"Created duty status: {status} for {current_day} "
+                    f"from {overlap_start.time()} to {overlap_end.time()}"
                 )
 
                 # move to next day if needed

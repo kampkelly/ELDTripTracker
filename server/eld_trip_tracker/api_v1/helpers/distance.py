@@ -1,5 +1,5 @@
-from api_v1.lib.logger import general_logger
 import polyline
+from api_v1.lib.logger import general_logger
 from django.contrib.gis.geos import LineString, Point
 
 

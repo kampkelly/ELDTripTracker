@@ -1,7 +1,5 @@
 from datetime import timedelta
 
-from django.utils import timezone
-
 from api_v1.helpers.distance import Distance
 from api_v1.helpers.fuel_stops import (
     METER_TO_MILES_DIVISION,
@@ -11,6 +9,7 @@ from api_v1.helpers.fuel_stops import (
 from api_v1.lib.logger import general_logger
 from api_v1.lib.mapbox import MapBoxAPI
 from api_v1.models import Stop
+from django.utils import timezone
 
 
 class TripCalculator:
@@ -57,8 +56,10 @@ class TripCalculator:
         general_logger.info("Initial route calculated successfully.")
         return {
             "geometry": best_route["geometry"],  # Polyline
-            "distance": best_route["distance"] / METER_TO_MILES_DIVISION,  # Convert meters to miles
-            "duration": best_route["duration"] / SECONDS_IN_HOURS,  # Convert seconds to hours
+            "distance": best_route["distance"]
+            / METER_TO_MILES_DIVISION,  # Convert meters to miles
+            "duration": best_route["duration"]
+            / SECONDS_IN_HOURS,  # Convert seconds to hours
         }
 
     def calculate_fuel_stops(self, trip, route, initial_route_data):
@@ -121,24 +122,20 @@ class TripCalculator:
                     if not mandatory_rest_added
                     else break_position_hours + 34
                 )
-                if (
-                    self.distance.interpolate_point(route.geometry, fraction)
-                    not in added_locations
-                ):
+                point_to_interpolate = self.distance.interpolate_point(
+                    route.geometry, fraction
+                )
+                if point_to_interpolate not in added_locations:
                     timezone_now = timezone_now + timedelta(hours=break_position_hours)
                     Stop.objects.create(
                         route=route,
                         stop_type="rest_break",
-                        location=self.distance.interpolate_point(
-                            route.geometry, fraction
-                        ),
+                        location=point_to_interpolate,
                         duration=0.5,
                         timestamp=timezone.now()
                         + timedelta(hours=adjusted_break_position_hours),
                     )
-                    added_locations.add(
-                        self.distance.interpolate_point(route.geometry, fraction)
-                    )
+                    added_locations.add(point_to_interpolate)
                 mandatory_rest_added = False
 
             # check for 70-hour limit violation after each break
@@ -214,7 +211,6 @@ class TripCalculator:
                     hours=duration_to_add
                 )
                 next_stop.save()
-
 
         # update the trip's total duration
         general_logger.info(f"Before updating total duration: {trip.total_duration}")

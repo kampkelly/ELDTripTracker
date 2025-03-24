@@ -1,13 +1,12 @@
 from datetime import timedelta
 
 import polyline
-from django.contrib.gis.geos import LineString, Point
-from django.utils import timezone
-
 from api_v1.helpers.distance import Distance
 from api_v1.lib.logger import general_logger
 from api_v1.lib.mapbox import MapBoxAPI
 from api_v1.models import Stop
+from django.contrib.gis.geos import LineString, Point
+from django.utils import timezone
 
 SECONDS_IN_HOURS = 3600
 METER_TO_MILES_DIVISION = 1609.34
@@ -146,7 +145,7 @@ class FuelStop:
         while remaining_distance > 1000:
             # find optimal fuel station near target distance
             fuel_stop, target_point = self.find_optimal_fuel_stop(geometry, 900)
-            
+
             if not fuel_stop:
                 return trip, route, total_distance_travelled, total_duration, geometry
 
