@@ -2,11 +2,12 @@
 
 ## Overview
 
-This application is a full-stack solution built with Django and React that takes trip details as input and outputs route instructions and ELD (Electronic Logging Device) logs. It helps property-carrying drivers plan their trips while adhering to Hours of Service (HOS) regulations. The frontend provides a user interface for inputting trip details, visualizing the route on a map, and viewing the generated ELD logs and a summary of the trip.
+This application is built with Django and React (Nextjs) that takes trip details as input and outputs route instructions and ELD (Electronic Logging Device) logs. It helps property-carrying drivers plan their trips while adhering to Hours of Service (HOS) regulations. The frontend provides a user interface for inputting trip details, visualizing the route on a map, and viewing the generated ELD logs and a summary of the trip.
 
 ## Live Demo
 
 [https://eld-trip-tracker.vercel.app/](https://eld-trip-tracker.vercel.app/)
+[Demo video](https://www.loom.com/share/0cc16520bd74478d89eb19a46bfc6aed?sid=f3cb3df4-53a7-4b56-bc4a-1bd5b357fc0b)
 
 ## Preview
 
@@ -18,11 +19,11 @@ This application is a full-stack solution built with Django and React that takes
 
 ## Features
 
-* **Trip Creation and Retrieval:** Allows users to save new trip details and retrieve a list of their trips via API endpoints. The frontend provides a form for inputting trip details.
+* **Trip Creation and Retrieval:** Allows users to save new trip details and retrieve a plan for the trip. The frontend provides a form for inputting trip details.
 * **Route Calculation:** Calculates the optimal route between the pickup and dropoff locations, considering the current location. The route is visualized on a map in the frontend.
-* **Fuel Stop Optimization:** Automatically identifies and includes optimal fuel stops along the route, assuming fueling at least once every 1,000 miles. These stops are displayed on the map.
+* **Fuel Stop Optimization:** Automatically identifies and includes optimal fuel stops (real gas stations) along the route, assuming fueling at least once every 1,000 miles. These stops are displayed on the map.
 * **Pickup and Dropoff Handling:** Includes pickup and dropoff locations as part of the route planning and displays them on the map.
-* **Rest Stop Calculation:** Calculates mandatory rest stops (10-hour rest) and rest breaks (30-minute breaks) based on the 70hrs/8days HOS rule. Rest stops are visualized on the map.
+* **Rest Stop Calculation:** Calculates mandatory rest stops (70-hour rest) and rest breaks (30-minute breaks) based on the  HOS rule. Rest stops are visualized on the map.
 * **ELD Daily Log Sheet Generation:** Generates daily log sheets in PDF format, filling them out with relevant trip and duty status information. These logs are displayed in the frontend.
 * **Duty Status Tracking:** Automatically tracks and records duty status changes (off-duty, sleeper, driving, on-duty) throughout the trip, reflected in the ELD logs.
 * **Map Integration:** The frontend uses the Mapbox GL JS library to display the route on a map, showing the current location, pickup location, dropoff location, fuel stops, and rest stops.
@@ -33,13 +34,13 @@ This application is a full-stack solution built with Django and React that takes
 
 **Backend (Django):**
 
-* Python
+* Python 3.12
 * Django REST Framework
 * Django GIS
 * PostgreSQL
+* MapBox API (for route calculation, finding points of interest, and geocoding)
 * reportlab (for PDF generation)
 * pdf2image (for converting PDF to image)
-* Pillow (for image processing)
 * polyline (for encoding/decoding route geometries)
 
 **Frontend (React/Next.js):**
@@ -51,23 +52,18 @@ This application is a full-stack solution built with Django and React that takes
 * Mapbox Geocoding API
 * TypeScript
 
-**Other:**
-
-* Mapbox API (for route calculation, finding points of interest, and geocoding)
-
 ## Installation (Backend)
 
 1.  **Clone the repository:**
     ```bash
-    git clone [repository_url]
+    git clone https://github.com/kampkelly/ELDTripTracker.git
     cd server
     ```
 
 2.  **Set up a virtual environment:**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # On macOS/Linux
-    # venv\Scripts\activate  # On Windows
+    source venv/bin/activate
     ```
 
 3.  **Install dependencies:**
@@ -77,8 +73,7 @@ This application is a full-stack solution built with Django and React that takes
     Alternatively, if you have `pip-tools` installed:
     ```bash
     pip install pip-tools
-    pip-compile requirements.in
-    pip-sync requirements.txt
+    make install
     ```
 
 4.  **Create a `.env` file:**
@@ -90,7 +85,9 @@ This application is a full-stack solution built with Django and React that takes
     DATABASE_PASSWORD=postgres
     DATABASE_HOST=localhost
     DATABASE_PORT=5432
+    FRONTEND_URL=http://localhost:3000
     MAPBOX_ACCESS_TOKEN=YOUR_MAPBOX_ACCESS_TOKEN
+    GEMINI_API_KEY=
     GDAL_LIBRARY_PATH=/path/to/gdal
     GEOS_LIBRARY_PATH=/path/to/geos
     ```
@@ -99,10 +96,18 @@ This application is a full-stack solution built with Django and React that takes
     ```bash
     python eld_trip_tracker/manage.py migrate
     ```
+    or
+    ```bash
+    make run-migration
+    ```
 
 6.  **Run the development server:**
     ```bash
     python eld_trip_tracker/manage.py runserver
+    ```
+    or
+     ```bash
+    make start-app
     ```
     The backend will be accessible at `http://localhost:8000/api/v1/`.
 
@@ -110,7 +115,7 @@ This application is a full-stack solution built with Django and React that takes
 
 1.  **Navigate to the frontend directory:**
     ```bash
-    cd eldtriprouter
+    cd client
     ```
 
 2.  **Install dependencies:**
@@ -118,8 +123,8 @@ This application is a full-stack solution built with Django and React that takes
     yarn install
     ```
 
-3.  **Create a `.env.local` file:**
-    Create a `.env.local` file in the `eldtriprouter` directory and add your Mapbox public token and the backend API endpoint.
+3.  **Create a `.env` file:**
+    Create a `.env` file in the `client` directory and add your Mapbox public token and the backend API endpoint.
 
     ```
     NEXT_PUBLIC_MAPBOX_TOKEN=YOUR_MAPBOX_PUBLIC_TOKEN
@@ -148,6 +153,7 @@ The application makes the following assumptions based on the assessment instruct
 
 * **Driver Type:** Property-carrying driver.
 * **HOS Regulations:** 70 hours/8 days cycle, no adverse driving conditions.
+* **Rest Stos:** 30 minutes rest for every 8 hours driving.
 * **Fueling:** Fueling occurs at least once every 1,000 miles.
 * **Pickup and Drop-off Time:** 1 hour is allocated for both pickup and drop-off.
 
@@ -176,9 +182,6 @@ The frontend codebase is structured as follows:
 * `app/`: Contains the main application routes and the main page (`page.tsx`).
 * `app/api/proxy/route.ts`: Defines the API proxy route for the backend.
 * `components/`: Contains reusable UI components such as the map, log sheet viewer, and location input.
-* `hooks/`: Contains custom React hooks.
-* `lib/`: Contains utility functions.
-* `public/`: Contains static assets like images.
 * `styles/`: Contains global CSS styles.
 
 ## Code Style and Quality
@@ -186,21 +189,3 @@ The frontend codebase is structured as follows:
 **Backend:**
 
 The backend codebase follows the PEP 8 style guide and uses `flake8`, `black`, `isort`, and `mypy`.
-
-**Frontend:**
-
-The frontend codebase uses Prettier for code formatting and ESLint for linting.
-
-## Contributing
-
-(Guidelines for contributing to the project will be added here if applicable.)
-
-## License
-
-MIT License
-
-Copyright (c) 2025 Runor Adjekpiyede
-
-## Contact
-
-(Your contact information can be added here if you wish to be contacted about the project.)

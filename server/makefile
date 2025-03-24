@@ -24,7 +24,3 @@ start-app:
 lint:
 	@echo "Checking lint errors"
 	black . && isort . --profile black && flake8 .
-
-typings:
-	@echo "Checking type errors"
-	mypy .

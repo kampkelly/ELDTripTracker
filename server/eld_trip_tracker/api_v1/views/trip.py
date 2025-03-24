@@ -49,7 +49,7 @@ def get_stops(trip, stops):
     return stops_data
 
 
-def build_frontend_response(trip, stops, eld_logs, hos):
+def build_frontend_response(trip, stops, eld_logs):
     """
     Construct a response containing trip data.
     """
@@ -62,7 +62,7 @@ def build_frontend_response(trip, stops, eld_logs, hos):
         "driving_duration": trip.total_duration - stops_duration,
         "stops": stops_data,
         "eld_logs": eld_logs,
-        "hos": hos,
+        "hos": {},
     }
 
 
@@ -125,8 +125,7 @@ class TripListCreateAPIView(APIView):
             eld_logs = self.eld_log.generate_eld_logs(trip, daily_logs)
 
             stops = Stop.objects.filter(route__trip=trip).order_by("timestamp")
-            hos = {}
-            response = build_frontend_response(trip, stops, eld_logs, hos)
+            response = build_frontend_response(trip, stops, eld_logs)
 
             return Response(response, status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -174,8 +173,7 @@ class TripDetailAPIView(APIView):
             eld_logs = self.eld_log.generate_eld_logs(trip, daily_logs)
 
             stops = Stop.objects.filter(route__trip=trip).order_by("timestamp")
-            hos = {}
-            response = build_frontend_response(trip, stops, eld_logs, hos)
+            response = build_frontend_response(trip, stops, eld_logs)
 
             return Response(response, status=status.HTTP_200_OK)
 

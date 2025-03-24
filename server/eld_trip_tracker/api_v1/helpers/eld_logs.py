@@ -168,7 +168,6 @@ class ELDLog:
         """
         custom_page_size = (513, 518)
         buffer = BytesIO()
-        # c = canvas.Canvas(output_path, pagesize=CUSTOM_PAGE_SIZE)
         c = canvas.Canvas(buffer, pagesize=custom_page_size)
         c.drawImage(
             background_image,
@@ -193,8 +192,7 @@ class ELDLog:
             "to": (279, 475),
             "carrier_name": (236, 442),
             "truck_no": (60, 405),
-            # "": "",
-            "total_miles": (67, 437),  # (x, y)
+            "total_miles": (67, 437),
             "remarks": (88, 244),
             "grid": {
                 "start_x": 65,  # left edge of the grid

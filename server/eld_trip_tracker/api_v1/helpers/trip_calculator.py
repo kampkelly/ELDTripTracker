@@ -104,7 +104,7 @@ class TripCalculator:
 
             if time_until_break > remaining_driving:
                 general_logger.info("No more full breaks needed.")
-                break  # no more full breaks needed
+                break
 
             # add rest break
             accumulated_driving += time_until_break

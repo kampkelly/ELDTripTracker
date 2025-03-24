@@ -6,7 +6,7 @@ import "mapbox-gl/dist/mapbox-gl.css"
 import MapboxDirections from "@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions"
 import "@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions.css"
 
-const MAPBOX_TOKEN = "pk.eyJ1Ijoia2FtcGtlbGx5IiwiYSI6ImNtOGZvbmU3MDBlcDgybHB3YTRlMThyMXkifQ.rPz58hWmBPYkKtvN5uw9mA"
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
 interface Stop {
   coordinates: [number, number]
